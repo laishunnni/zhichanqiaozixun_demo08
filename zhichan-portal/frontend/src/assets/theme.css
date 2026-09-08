@@ -1,0 +1,36 @@
+:root {
+  /* 三端主题色 */
+  --color-user: #1e40af;
+  --color-expert: #2563eb;
+  --color-admin: #3b82f6;
+
+  /* 全局背景与水印 */
+  --bg-global: #e8f4fd;
+
+  /* 文本 */
+  --color-text: #1f2329;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9aa4b2;
+  --color-border: #d9dee5;
+  --color-danger: #f5222d;
+  --color-success: #52c41a;
+
+  /* 圆角与阴影 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --shadow-card: 0 12px 36px rgba(31, 35, 41, 0.08);
+
+  /* 字体 */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+body {
+  font-family: var(--font-family);
+}
+
+.bg-global {
+  background: var(--bg-global);
+}

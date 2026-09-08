@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  EXPERT
+  ADMIN
+}
+
+enum CaseStatus {
+  PENDING_REVIEW
+  APPROVED
+  PAID
+  MATCHING
+  READY_TO_CHAT
+  IN_COMMUNICATION
+  COMPLETED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PaymentMethod {
+  WECHAT
+  ALIPAY
+}
+
+enum ShiftPeriod {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+enum WorkOrderType {
+  SUPERVISION
+  COMPLAINT
+}
+
+enum WorkOrderStatus {
+  PENDING
+  PROCESSING
+  CLOSED
+}
+
+enum SupervisionGrade {
+  EXCELLENT
+  QUALIFIED
+  NEEDS_IMPROVEMENT
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  role               Role
+  loginId            String   @unique @map("login_id")
+  passwordHash       String   @map("password_hash")
+  email              String?  @unique
+  phone              String?  @unique
+  wechatOpenid       String?  @unique @map("wechat_openid")
+  isActive           Boolean  @default(true) @map("is_active")
+  isOnline           Boolean  @default(false) @map("is_online")
+  mustChangePassword Boolean  @default(false) @map("must_change_password")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  cases         Case[]        @relation("UserCases")
+  assignedCases Case[]        @relation("CaseExpert")
+  roomsExpert   ChatRoom[]    @relation("RoomExpert")
+  messages      ChatMessage[] @relation("MessageSender")
+  expertShifts  ExpertShift[] @relation("ExpertShifts")
+  ratings       Rating[]      @relation("UserRatings")
+  workOrders    WorkOrder[]   @relation("ExpertWorkOrders")
+
+  @@map("users")
+}
+
+model Case {
+  id            String     @id @default(cuid())
+  userId        String     @map("user_id")
+  user          User       @relation("UserCases", fields: [userId], references: [id])
+  platforms     String[]
+  otherPlatform String?    @map("other_platform")
+  description   String
+  contactPhone  String?    @map("contact_phone")
+  contactEmail  String?    @map("contact_email")
+  status        CaseStatus @default(PENDING_REVIEW)
+  amountCents   Int        @default(2000)
+  rejectReason  String?    @map("reject_reason")
+  expertId      String?    @map("expert_id")
+  expert        User?      @relation("CaseExpert", fields: [expertId], references: [id])
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  evidences Evidence[]
+  order     Order?
+  chatRoom  ChatRoom?
+  rating    Rating?
+  workOrders WorkOrder[]
+
+  @@map("cases")
+}
+
+model Evidence {
+  id        String   @id @default(cuid())
+  caseId    String   @map("case_id")
+  case      Case     @relation(fields: [caseId], references: [id])
+  fileName  String   @map("file_name")
+  mimeType  String   @map("mime_type")
+  size      Int
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("evidences")
+}
+
+model Order {
+  id          String        @id @default(cuid())
+  caseId      String        @unique @map("case_id")
+  case        Case          @relation(fields: [caseId], references: [id])
+  amountCents Int           @map("amount_cents")
+  method      PaymentMethod @default(WECHAT)
+  status      PaymentStatus @default(PENDING)
+  externalId  String?       @map("external_id")
+  paidAt      DateTime?     @map("paid_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@map("orders")
+}
+
+model ChatRoom {
+  id        String        @id @default(cuid())
+  caseId    String        @unique @map("case_id")
+  case      Case          @relation(fields: [caseId], references: [id])
+  expertId  String        @map("expert_id")
+  expert    User          @relation("RoomExpert", fields: [expertId], references: [id])
+  createdAt DateTime      @default(now()) @map("created_at")
+  messages  ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String   @map("room_id")
+  room      ChatRoom @relation(fields: [roomId], references: [id])
+  senderId  String   @map("sender_id")
+  sender    User     @relation("MessageSender", fields: [senderId], references: [id])
+  type      String   @default("text")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("chat_messages")
+}
+
+model ExpertShift {
+  id        String      @id @default(cuid())
+  expertId  String      @map("expert_id")
+  expert    User        @relation("ExpertShifts", fields: [expertId], references: [id])
+  date      String
+  period    ShiftPeriod
+  isOnDuty  Boolean     @default(false) @map("is_on_duty")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  @@unique([expertId, date, period])
+  @@map("expert_shifts")
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  caseId    String   @unique @map("case_id")
+  case      Case     @relation(fields: [caseId], references: [id])
+  userId    String   @map("user_id")
+  user      User     @relation("UserRatings", fields: [userId], references: [id])
+  score     Int
+  feedback  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("ratings")
+}
+
+model WorkOrder {
+  id         String            @id @default(cuid())
+  caseId     String?           @map("case_id")
+  case       Case?             @relation(fields: [caseId], references: [id])
+  expertId   String            @map("expert_id")
+  expert     User              @relation("ExpertWorkOrders", fields: [expertId], references: [id])
+  type       WorkOrderType     @default(SUPERVISION)
+  status     WorkOrderStatus   @default(PENDING)
+  grade      SupervisionGrade?
+  title      String
+  content    String
+  suggestion String?
+  createdBy  String            @map("created_by")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+  closedAt   DateTime?         @map("closed_at")
+
+  @@map("work_orders")
+}
+
+model SmsCode {
+  id        String    @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([phone, createdAt])
+  @@map("sms_codes")
+}
+
+model PasswordResetCode {
+  id        String    @id @default(cuid())
+  account   String
+  code      String
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([account, createdAt])
+  @@map("password_reset_codes")
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  caseId    String?  @map("case_id")
+  channel   String
+  target    String
+  content   String
+  status    String   @default("PENDING")
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notification_logs")
+}
